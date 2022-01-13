@@ -1,6 +1,6 @@
-import requests, os, json
+import requests, os, json, sys
 from bs4 import BeautifulSoup
-title = "Doujin Music Downloader v0.0.1"
+title = "Doujin Music Downloader v0.0.2"
 
 def clear():
     if os.name=='nt':
@@ -16,12 +16,41 @@ def wait():
 
 while True:
     clear()
-
     print(title)
     print(" ")
-    search = input("Search: ")
-    mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n) ").lower()
-    if search=="": continue
+    args = sys.argv
+    mpthree_ch = "n"
+    log_name = ""
+    search = ""
+    if len(args)>1:
+        for i in range(len(args)):
+            if args[i]=="--search" or args[i]=="-s":
+                search = args[i+1]
+            elif args[i]=="--mp3" or args[i]=="-m":
+                mpthree_ch = args[i+1].lower()
+            elif args[i]=="--json-file" or args[i]=="-f":
+                log_name = args[i+1]
+            elif args[i]=="--help" or args[i]=="-h":
+                print("dmd.py [...]")
+                print(" Arguments: ")
+                print(" --help(-h) - print this text")
+                print(" --search(-s) - search text")
+                print(" --mp3(-m) - mp3 doujinstyle toggle search (y/n, default=n)")
+                print(" --json-file(-f) - json file output name")
+                sys.exit(0)
+        if search=="": # search not specified
+            print("--search(-s) required: use --help")
+            sys.exit(0)
+        elif mpthree_ch=="":
+            print("--mp3(-m) required: use --help")
+            sys.exit(0)
+        elif log_name=="":
+            print(" --json-file(-f) required: use --help")
+            sys.exit(0)
+    else:
+        search = input("Search: ")
+        mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n) ").lower()
+        if search=="": continue
     # searching in doujinstyle
     print(" ")
     print("Searching on doujinstyle...")
@@ -30,10 +59,14 @@ while True:
     ds_prev_det = ""
     for i in range(0, 1000):
         print("Current page: " + str(i))
-        if mpthree_ch=="y":
-            ds_response = requests.get("https://doujinstyle.com/?p=search&type=blanket&result=" + search + "&format0=on&format1=on&page=" + str(i))
-        else:
-            ds_response = requests.get("https://doujinstyle.com/?p=search&type=blanket&result=" + search + "&format0=on&page=" + str(i))
+        try:
+            if mpthree_ch=="y":
+                ds_response = requests.get("https://doujinstyle.com/?p=search&type=blanket&result=" + search + "&format0=on&format1=on&page=" + str(i))
+            else:
+                ds_response = requests.get("https://doujinstyle.com/?p=search&type=blanket&result=" + search + "&format0=on&page=" + str(i))
+        except TimeoutError:
+            print("Connection failed! Check your internet connection.")
+            sys.exit(0)
         ds_response.encoding = 'utf-8'
         soup = BeautifulSoup(ds_response.text, 'lxml')
         ds_details = soup.find_all('div',class_='gridDetails')
@@ -83,6 +116,19 @@ while True:
     if nt_names!=[] and nt_links!=[]:
         names = names + nt_names
         links = links + nt_links
+    if len(args)>1: # json output
+        if names!=[] or links!=[]:
+            # TODO: convert download links to direct download links
+            json_string = "{"
+            for i in range(len(names)):
+                update = '"album": {"name": "' + names[i] + '", "link": "' + links[i] + '"}'
+                if json_string=="{":
+                    json_string = "{" + update
+                else:
+                    json_string = json_string + "," + update
+            json_string = json_string + "}"
+            open(log_name + ".json", "w", encoding="UTF-8").write(json_string)
+        sys.exit(0)
     if names==[] and links==[]:
         clear()
         print("Nothing!")
@@ -98,7 +144,7 @@ while True:
         pass
     elif "9tensu.com/" in download_link: # 9tensu download logic
         pass
-    # TODO: downloading (until just links :P )
+    # TODO: json export and timetable checks
     clear()
     print("Link: ")
     print(download_link)
