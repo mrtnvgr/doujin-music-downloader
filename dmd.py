@@ -1,12 +1,12 @@
 import requests, os, json, sys
 from bs4 import BeautifulSoup
-title = "Doujin Music Downloader v0.0.2"
+title = "Doujin Music Downloader v0.0.3"
 
 def clear():
     if os.name=='nt':
         os.system('cls')
     else:
-        os.system("cls")
+        os.system("clear")
 
 def wait():
     if os.name=='nt':
@@ -15,11 +15,11 @@ def wait():
         os.system('read -n1 -r -p "Press any key to continue..."')
 
 while True:
-    clear()
     print(title)
     print(" ")
     args = sys.argv
     mpthree_ch = "n"
+    repeats_ch = "n"
     log_name = ""
     search = ""
     if len(args)>1:
@@ -29,13 +29,16 @@ while True:
             elif args[i]=="--mp3" or args[i]=="-m":
                 mpthree_ch = args[i+1].lower()
             elif args[i]=="--json-file" or args[i]=="-f":
-                log_name = args[i+1]
+                    log_name = args[i+1]
+            elif args[i]=="--repeats" or args[i]=="-r":
+                repeats_ch = args[i+1].lower()
             elif args[i]=="--help" or args[i]=="-h":
                 print("dmd.py [...]")
                 print(" Arguments: ")
                 print(" --help(-h) - print this text")
                 print(" --search(-s) - search text")
                 print(" --mp3(-m) - mp3 doujinstyle toggle search (y/n, default=n)")
+                print(" --repeats(-r) - remove similar albums from output (y/n, default=n)")
                 print(" --json-file(-f) - json file output name")
                 sys.exit(0)
         if search=="": # search not specified
@@ -50,6 +53,7 @@ while True:
     else:
         search = input("Search: ")
         mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n) ").lower()
+        repeats_ch = input("Do you want to remove similar albums?(y/n) ").lower()
         if search=="": continue
     # searching in doujinstyle
     print(" ")
@@ -105,9 +109,6 @@ while True:
             nt_names.append(json_line['link'][4]['title'])
     except KeyError:
         pass
-
-    # results
-    clear()
     names = []
     links = []
     if ds_names!=[] and ds_links!=[]:
@@ -116,6 +117,17 @@ while True:
     if nt_names!=[] and nt_links!=[]:
         names = names + nt_names
         links = links + nt_links
+    if repeats_ch=="y": # removing repeats
+        t_names = []
+        for i in range(len(names)):
+            try:
+                if names[i].lower().replace(" ", "") not in t_names:
+                    t_names.append(names[i].lower().replace(" ", "")) # bug fix
+                else:
+                    names.pop(i)
+                    links.pop(i)
+            except IndexError:
+                pass
     if len(args)>1: # json output
         if names!=[] or links!=[]:
             # TODO: convert download links to direct download links
@@ -135,18 +147,25 @@ while True:
         print()
         wait()
         continue
-    print("Total results: ")
-    for i in range(len(names)-1):
-        print("[" + str(i) + "] " + names[i])
-    ch = input("Download: ")
-    download_link = links[int(ch)]
-    if "doujinstyle.com/" in download_link: # doujinstyle download logic
-        pass
-    elif "9tensu.com/" in download_link: # 9tensu download logic
-        pass
-    # TODO: json export and timetable checks
+    while True:
+        print("Total results: ")
+        for i in range(len(names)-1):
+            print("[" + str(i) + "] " + names[i])
+        ch = input("Download: ")
+        download_link = links[int(ch)]
+        if "doujinstyle.com/" in download_link: # doujinstyle download logic
+            pass
+        elif "9tensu.com/" in download_link: # 9tensu download logic
+            pass
+        # TODO: timetable checks
+        clear()
+        print("Link: ")
+        print(download_link)
+        print(" ")
+        chh = input("Main menu/Current download list(m,c): ")
+        if chh=="m":
+            break
+        elif chh=="c":
+            clear()
+            continue
     clear()
-    print("Link: ")
-    print(download_link)
-    print(" ")
-    wait()
