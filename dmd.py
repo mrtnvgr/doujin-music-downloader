@@ -1,6 +1,6 @@
-import requests, os, json, sys
+import requests, os, json, sys, time
 from bs4 import BeautifulSoup
-title = "Doujin Music Downloader v0.0.3"
+title = "Doujin Music Downloader v0.0.4"
 
 def clear():
     if os.name=='nt':
@@ -21,6 +21,7 @@ while True:
     mpthree_ch = "n"
     repeats_ch = "n"
     log_name = ""
+    log_type = "json"
     search = ""
     if len(args)>1:
         for i in range(len(args)):
@@ -28,8 +29,10 @@ while True:
                 search = args[i+1]
             elif args[i]=="--mp3" or args[i]=="-m":
                 mpthree_ch = args[i+1].lower()
-            elif args[i]=="--json-file" or args[i]=="-f":
+            elif args[i]=="--file" or args[i]=="-f":
                     log_name = args[i+1]
+            elif args[i]=="file-type" or args[i]=="-ft":
+                    log_type = args[i+1]
             elif args[i]=="--repeats" or args[i]=="-r":
                 repeats_ch = args[i+1].lower()
             elif args[i]=="--help" or args[i]=="-h":
@@ -39,7 +42,8 @@ while True:
                 print(" --search(-s) - search text")
                 print(" --mp3(-m) - mp3 doujinstyle toggle search (y/n, default=n)")
                 print(" --repeats(-r) - remove similar albums from output (y/n, default=n)")
-                print(" --json-file(-f) - json file output name")
+                print(" --file(-f) - file output name")
+                print(" --file-type(-ft) - file output type (text/json, default=json)")
                 sys.exit(0)
         if search=="": # search not specified
             print("--search(-s) required: use --help")
@@ -48,13 +52,15 @@ while True:
             print("--mp3(-m) required: use --help")
             sys.exit(0)
         elif log_name=="":
-            print(" --json-file(-f) required: use --help")
+            print(" --file(-f) required: use --help")
             sys.exit(0)
     else:
         search = input("Search: ")
         mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n) ").lower()
         repeats_ch = input("Do you want to remove similar albums?(y/n) ").lower()
         if search=="": continue
+    # capture origin time
+    start_time = time.monotonic()
     # searching in doujinstyle
     print(" ")
     print("Searching on doujinstyle...")
@@ -109,6 +115,8 @@ while True:
             nt_names.append(json_line['link'][4]['title'])
     except KeyError:
         pass
+    # printing time
+    print("Seconds elapsed: " + str(int(time.monotonic()-start_time)))
     names = []
     links = []
     if ds_names!=[] and ds_links!=[]:
@@ -117,29 +125,36 @@ while True:
     if nt_names!=[] and nt_links!=[]:
         names = names + nt_names
         links = links + nt_links
-    if repeats_ch=="y": # removing repeats
+    if repeats_ch=="y": # removing repeats (работает с натяжкой)
         t_names = []
         for i in range(len(names)):
             try:
                 if names[i].lower().replace(" ", "") not in t_names:
                     t_names.append(names[i].lower().replace(" ", "")) # bug fix
                 else:
-                    names.pop(i)
-                    links.pop(i)
+                    names.remove(names[i])
+                    links.remove(links[i])
             except IndexError:
-                pass
+                i = i - 1
+                continue
     if len(args)>1: # json output
         if names!=[] or links!=[]:
             # TODO: convert download links to direct download links
-            json_string = "{"
-            for i in range(len(names)):
-                update = '"album": {"name": "' + names[i] + '", "link": "' + links[i] + '"}'
-                if json_string=="{":
-                    json_string = "{" + update
-                else:
-                    json_string = json_string + "," + update
-            json_string = json_string + "}"
-            open(log_name + ".json", "w", encoding="UTF-8").write(json_string)
+            if log_type=="json":
+                json_string = "{"
+                for i in range(len(names)):
+                    update = '"album": {"name": "' + names[i] + '", "link": "' + links[i] + '"}'
+                    if json_string=="{":
+                        json_string = "{" + update
+                    else:
+                        json_string = json_string + "," + update
+                json_string = json_string + "}"
+                open(log_name + ".json", "w", encoding="UTF-8").write(json_string)
+            elif log_type=="text":
+                log_text = ""
+                for i in range(len(names)):
+                    log_text = log_text + "\n" + names[i] + " (" + links[i] + ")"
+                open(log_name, "w", encoding="UTF-8").write(log_text)
         sys.exit(0)
     if names==[] and links==[]:
         clear()
@@ -157,7 +172,6 @@ while True:
             pass
         elif "9tensu.com/" in download_link: # 9tensu download logic
             pass
-        # TODO: timetable checks
         clear()
         print("Link: ")
         print(download_link)
