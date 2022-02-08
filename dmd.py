@@ -1,6 +1,6 @@
 import requests, os, json, sys, time
 from bs4 import BeautifulSoup
-title = "Doujin Music Downloader v0.0.4"
+title = "Doujin Music Downloader v0.0.5"
 
 def clear():
     if os.name=='nt':
@@ -56,8 +56,8 @@ while True:
             sys.exit(0)
     else:
         search = input("Search: ")
-        mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n) ").lower()
-        repeats_ch = input("Do you want to remove similar albums?(y/n) ").lower()
+        mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n): ").lower()
+        repeats_ch = input("Do you want to remove similar albums?(y/n): ").lower()
         if search=="": continue
     # capture origin time
     start_time = time.monotonic()
@@ -161,20 +161,27 @@ while True:
         print("Nothing!")
         print()
         wait()
+        clear()
         continue
     while True:
+        print()
         print("Total results: ")
         for i in range(len(names)-1):
             print("[" + str(i) + "] " + names[i])
-        ch = input("Download: ")
-        download_link = links[int(ch)]
-        if "doujinstyle.com/" in download_link: # doujinstyle download logic
-            pass
-        elif "9tensu.com/" in download_link: # 9tensu download logic
-            pass
+        ch = input("Download (all-view all links): ")
         clear()
         print("Link: ")
-        print(download_link)
+        if "," in ch:
+            for link in ch.split(","):
+                print("[" + link + "] " + links[int(link)])
+        else:
+            if ch.lower()=="m":
+                break
+            if ch.lower()=="all":
+                for link in range(len(names)):
+                    print("[" + str(link) + "] " + links[link])
+            else:
+                print(links[int(ch)])
         print(" ")
         chh = input("Main menu/Current download list(m,c): ")
         if chh=="m":
