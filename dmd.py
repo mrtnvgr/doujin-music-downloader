@@ -1,6 +1,6 @@
-import requests, os, json, sys, time
+import requests, os, json, sys, time, re
 from bs4 import BeautifulSoup
-title = "Doujin Music Downloader v0.0.5"
+title = "Doujin Music Downloader v0.0.6"
 
 def clear():
     if os.name=='nt':
@@ -15,8 +15,9 @@ def wait():
         os.system('read -n1 -r -p "Press any key to continue..."')
 
 while True:
+    clear()
     print(title)
-    print(" ")
+    print()
     args = sys.argv
     mpthree_ch = "n"
     repeats_ch = "n"
@@ -56,13 +57,13 @@ while True:
             sys.exit(0)
     else:
         search = input("Search: ")
+        if search=="": continue
         mpthree_ch = input("Do you want to search with mp3 files (doujinstyle)?(y/n): ").lower()
         repeats_ch = input("Do you want to remove similar albums?(y/n): ").lower()
-        if search=="": continue
     # capture origin time
     start_time = time.monotonic()
     # searching in doujinstyle
-    print(" ")
+    print()
     print("Searching on doujinstyle...")
     ds_names = []
     ds_links = []
@@ -91,11 +92,11 @@ while True:
             ds_links.append("https://doujinstyle.com" + ds_href['href'][1:])
 
     # searching in 9tensu
-    print(" ")
+    print()
     print("Searching on 9tensu...")
     nt_links = []
     nt_names = []
-    headers = {
+    tensu_headers = {
         'Host': 'www.9tensu.com',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -105,7 +106,7 @@ while True:
         'Upgrade-Insecure-Requests': '1',
         'Cache-Control': 'max-age=0'
     }
-    nt_response = requests.get("http://www.9tensu.com/feeds/posts/default?alt=json-in-script&start-index=1&q=" + search + "&orderby=relevance&max-results=999999", headers=headers)
+    nt_response = requests.get("http://www.9tensu.com/feeds/posts/default?alt=json-in-script&start-index=1&q=" + search + "&orderby=relevance&max-results=999999", headers=tensu_headers)
     nt_response.encoding = 'utf-8'
     clean_data = nt_response.text.replace("gdata.io.handleScriptLoaded(", "").replace(");", "") # cleaning
     try:
@@ -115,8 +116,6 @@ while True:
             nt_names.append(json_line['link'][4]['title'])
     except KeyError:
         pass
-    # printing time
-    print("Seconds elapsed: " + str(int(time.monotonic()-start_time)))
     names = []
     links = []
     if ds_names!=[] and ds_links!=[]:
@@ -125,7 +124,35 @@ while True:
     if nt_names!=[] and nt_links!=[]:
         names = names + nt_names
         links = links + nt_links
-    if repeats_ch=="y": # removing repeats (работает с натяжкой)
+    print()
+    print("Converting...")
+    for i in range(len(links)):
+        if "https://doujinstyle.com" in links[i]:
+            headers = {
+                'Host':'doujinstyle.com',
+                'User-Agent':'Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0',
+                'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language':'en-US,en;q=0.5',
+                'Accept-Encoding':'gzip, deflate, br',
+                'Content-Type':'application/x-www-form-urlencoded',
+                'Origin': 'https://doujinstyle.com',
+                'Connection': 'keep-alive',
+                'Referer': links[i],
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1',
+            }
+            links[i] = requests.post(links[i], headers=headers, data=b"type=1&id=" + links[i].split("id=")[1].split("&")[0].encode() + b"&source=0&download_link=", allow_redirects=False).headers["location"]
+        elif "http://www.9tensu.com" in links[i]:
+            for line in requests.get(links[i], headers=tensu_headers).text.split("\n"):
+                if "EXTRA : " in line:
+                    links[i] = ' '.join(re.findall(r'(?<=<a href=")[^"]*', line))
+                    continue
+    # printing time
+    print("Seconds elapsed: " + str(int(time.monotonic()-start_time)))
+    if repeats_ch=="y":
         t_names = []
         for i in range(len(names)):
             try:
@@ -137,9 +164,8 @@ while True:
             except IndexError:
                 i = i - 1
                 continue
-    if len(args)>1: # json output
+    if len(args)>1: # output
         if names!=[] or links!=[]:
-            # TODO: convert download links to direct download links
             if log_type=="json":
                 json_string = "{"
                 for i in range(len(names)):
@@ -169,24 +195,28 @@ while True:
         for i in range(len(names)-1):
             print("[" + str(i) + "] " + names[i])
         ch = input("Download (all-view all links): ")
+        if ch=="": continue
         clear()
-        print("Link: ")
         if "," in ch:
+            print("Links: ")
             for link in ch.split(","):
                 print("[" + link + "] " + links[int(link)])
         else:
             if ch.lower()=="m":
                 break
             if ch.lower()=="all":
+                print("Links: ")
                 for link in range(len(names)):
                     print("[" + str(link) + "] " + links[link])
             else:
+                print("Link: ")
                 print(links[int(ch)])
-        print(" ")
-        chh = input("Main menu/Current download list(m,c): ")
+        print()
+        chh = input("Main menu/Current download list/Quit(m,c,q): ")
         if chh=="m":
             break
         elif chh=="c":
-            clear()
             continue
+        elif chh=="q":
+            sys.exit(0)
     clear()
